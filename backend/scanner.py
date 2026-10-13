@@ -43,9 +43,11 @@ def detect_card(bgr):
     for c in sorted(cnts, key=cv2.contourArea, reverse=True)[:6]:
         if cv2.contourArea(c) < 0.25 * area:
             break
-        approx = cv2.approxPolyDP(c, 0.02 * cv2.arcLength(c, True), True)
-        if len(approx) != 4:
-            continue
+        hull = cv2.convexHull(c)
+        peri = cv2.arcLength(hull, True)
+        approx = next((a for a in (cv2.approxPolyDP(hull, e * peri, True) for e in (0.02, 0.03, 0.05, 0.08)) if len(a) == 4), None)
+        if approx is None:
+            approx = cv2.boxPoints(cv2.minAreaRect(hull)).reshape(4, 1, 2)
         pts = _order(approx) / s
         wl, hl = np.linalg.norm(pts[1] - pts[0]), np.linalg.norm(pts[3] - pts[0])
         if wl > hl:

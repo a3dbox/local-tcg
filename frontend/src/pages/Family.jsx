@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Gift, ArrowRightLeft, Target } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
-import { api, cardImg, formatErr, usd, vLabel } from "@/lib/api";
+import { api, cardImg, formatErr, gbp, vLabel } from "@/lib/api";
 import { PageTitle, Spinner, Empty, Btn, Chips } from "@/components/UI";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -14,7 +14,7 @@ function TradeCard({ c, onGive, testid }) {
       <Link to={`/card/${c.card_id}`}><img src={cardImg(c.image)} alt={c.name} loading="lazy" className="aspect-[63/88] w-full rounded-xl object-cover" /></Link>
       <p className="mt-2 truncate font-display text-sm font-bold">{c.name}</p>
       <p className="truncate text-xs text-slate-500">{c.set_name} · #{c.local_id}</p>
-      <div className="mt-1 flex items-center justify-between text-xs"><span className="font-bold text-emerald-600">{c.spare_qty} spare</span><span className="font-bold">{usd(c.price_usd)}</span></div>
+      <div className="mt-1 flex items-center justify-between text-xs"><span className="font-bold text-emerald-600">{c.spare_qty} spare</span><span className="font-bold">{gbp(c.price_gbp)}</span></div>
       {onGive && <Btn onClick={() => onGive(c)} className="mt-2 w-full px-3 py-1.5 text-sm" data-testid={`${testid}-give`}><Gift className="h-4 w-4" /> Give</Btn>}
     </div>
   );

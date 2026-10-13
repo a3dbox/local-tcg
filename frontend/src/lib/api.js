@@ -54,6 +54,7 @@ export function formatErr(e) {
 export const cardImg = (image, q = "low") => (image ? `${image}/${q}.webp` : null);
 export const logoImg = (logo) => (logo ? `${logo}.webp` : null);
 export const usd = (v) => (v == null ? "—" : `$${Number(v).toFixed(2)}`);
+export const gbp = (v) => (v == null ? "—" : `£${Number(v).toFixed(2)}`);
 export const eur = (v) => (v == null ? "—" : `€${Number(v).toFixed(2)}`);
 export const VARIANT_LABELS = { normal: "Normal", holo: "Holo", reverse: "Reverse Holo", firstEdition: "1st Edition", wPromo: "W Promo" };
 export const vLabel = (v) => VARIANT_LABELS[v] || v;

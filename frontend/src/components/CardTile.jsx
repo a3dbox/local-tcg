@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Check, Plus } from "lucide-react";
-import { cardImg, usd, vLabel } from "@/lib/api";
+import { cardImg, gbp, vLabel } from "@/lib/api";
 
 export const CardImage = ({ image, name, q = "low", className = "" }) =>
   image ? (
@@ -22,12 +22,12 @@ export function CardTile({ card, owned = 0, missing = false, price, variant, onQ
           <p className="truncate font-display text-sm font-bold">{card.name}</p>
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span className="font-mono">#{card.localId ?? card.local_id}</span>
-            {price != null && <span className="font-display font-bold text-slate-700">{usd(price)}</span>}
+            {price != null && <span className="font-display font-bold text-slate-700">{gbp(price)}</span>}
           </div>
           {variant && <span className="mt-1 inline-block rounded-full bg-[#FFCC00]/40 px-2 py-0.5 text-[10px] font-bold">{vLabel(variant)}</span>}
         </div>
       </Link>
-      {owned > 0 && (
+      {(typeof owned === "string" || owned > 0) && (
         <span data-testid={`owned-badge-${card.id}`} className="absolute right-3 top-3 flex items-center gap-0.5 rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-black text-white shadow">
           <Check className="h-3 w-3" strokeWidth={3} /> {owned}
         </span>

@@ -15,6 +15,10 @@ import { Pokedex, PokemonCards } from "@/pages/Pokedex";
 import Scan from "@/pages/Scan";
 import Settings from "@/pages/Settings";
 import Family from "@/pages/Family";
+import Admin from "@/pages/Admin";
+import CustomSets from "@/pages/CustomSets";
+import CustomSetDetail from "@/pages/CustomSetDetail";
+import Storage, { StorageDetail } from "@/pages/Storage";
 
 function Protected({ children }) {
   const { user } = useAuth();
@@ -39,6 +43,11 @@ export default function App() {
             <Route path="/goals" element={<Goals />} />
             <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/family" element={<Family />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/my-sets" element={<CustomSets />} />
+            <Route path="/my-sets/:id" element={<CustomSetDetail />} />
+            <Route path="/storage" element={<Storage />} />
+            <Route path="/storage/:id" element={<StorageDetail />} />
             <Route path="/pokedex" element={<Pokedex />} />
             <Route path="/pokedex/:dex" element={<PokemonCards />} />
             <Route path="/scan" element={<Scan />} />

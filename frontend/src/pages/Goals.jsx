@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, logoImg, usd } from "@/lib/api";
+import { api, logoImg, gbp } from "@/lib/api";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { PageTitle, ProgressBar, Spinner, Empty, Btn } from "@/components/UI";
 
@@ -47,13 +47,13 @@ export function Wishlist() {
   const [items, setItems] = useState(null);
   useEffect(() => { api.get("/wishlist").then((r) => setItems(r.data)); }, []);
   if (!items) return <Spinner />;
-  const total = items.reduce((a, i) => a + (i.price_usd || 0), 0);
+  const total = items.reduce((a, i) => a + (i.price_gbp || 0), 0);
   return (
     <div data-testid="wishlist-page">
-      <PageTitle title="Wishlist" sub={`Cards you're hunting for · about ${usd(total)} at market price.`} />
+      <PageTitle title="Wishlist" sub={`Cards you're hunting for · about ${gbp(total)} at market price.`} />
       {items.length === 0 ? <Empty testid="wishlist-empty" title="Wishlist is empty" text="Tap the heart on any card to save it here." /> : (
         <CardGrid testid="wishlist-grid">
-          {items.map((it, i) => <CardTile key={it.card_id} index={i} card={{ id: it.card_id, name: it.name, image: it.image, localId: `${it.local_id} · ${it.set_name || ""}` }} owned={it.owned} price={it.price_usd} />)}
+          {items.map((it, i) => <CardTile key={it.card_id} index={i} card={{ id: it.card_id, name: it.name, image: it.image, localId: `${it.local_id} · ${it.set_name || ""}` }} owned={it.owned} price={it.price_gbp} />)}
         </CardGrid>
       )}
     </div>

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { Target, X, LayoutGrid, BookOpen } from "lucide-react";
 import { Binder } from "@/components/Binder";
-import { api, formatErr, logoImg, usd } from "@/lib/api";
+import { api, formatErr, logoImg, gbp } from "@/lib/api";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { ProgressBar, Spinner, Chips, Btn } from "@/components/UI";
 
@@ -30,7 +30,7 @@ export default function SetDetail() {
   }, [d, view]);
   const missingValue = useMemo(() => {
     if (!d || !det) return null;
-    return d.set.cards.filter((c) => !d.owned[c.id]).reduce((a, c) => a + (det[c.id]?.price_usd || 0), 0);
+    return d.set.cards.filter((c) => !d.owned[c.id]).reduce((a, c) => a + (det[c.id]?.price_gbp || 0), 0);
   }, [d, det]);
 
   if (!d) return <Spinner text="Opening set…" />;
@@ -79,7 +79,7 @@ export default function SetDetail() {
             ))}
             {d.goal && <button onClick={() => setGoal(null)} className="press flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-slate-500" data-testid="goal-remove-button"><X className="h-4 w-4" /> Stop</button>}
           </div>
-          {missingValue != null && <p className="text-sm text-slate-600" data-testid="missing-value">Cost to complete (market): <span className="font-display text-lg font-black text-slate-900">{usd(missingValue)}</span></p>}
+          {missingValue != null && <p className="text-sm text-slate-600" data-testid="missing-value">Cost to complete (market): <span className="font-display text-lg font-black text-slate-900">{gbp(missingValue)}</span></p>}
         </div>
       </div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -99,7 +99,7 @@ export default function SetDetail() {
       <CardGrid testid="set-cards-grid">
         {cards.map((c, i) => {
           const owned = Object.values(d.owned[c.id] || {}).reduce((a, b) => a + b, 0);
-          return <CardTile key={c.id} card={c} index={i} owned={owned} missing={!owned} price={det?.[c.id]?.price_usd} onQuickAdd={quickAdd} />;
+          return <CardTile key={c.id} card={c} index={i} owned={owned} missing={!owned} price={det?.[c.id]?.price_gbp} onQuickAdd={quickAdd} />;
         })}
       </CardGrid>
       )}

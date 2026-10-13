@@ -6,6 +6,7 @@ import { api, formatErr, TYPE_COLORS } from "@/lib/api";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { Chips, PageTitle, Spinner, Empty, Btn } from "@/components/UI";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SetSelect } from "@/components/SetSelect";
 
 const CATS = ["Pokemon", "Trainer", "Energy"];
 const SORTS = [{ v: "none", l: "Default order" }, { v: "name", l: "Name A–Z" }, { v: "-name", l: "Name Z–A" }, { v: "localId", l: "Card number" }, { v: "-hp", l: "Highest HP" }];
@@ -60,7 +61,7 @@ export default function Search() {
         <Chips testid="filter-category" options={CATS} value={f.category} onChange={(v) => setF("category", v)} />
         <Chips testid="filter-type" options={meta.types} value={f.type} onChange={(v) => setF("type", v)} colors={TYPE_COLORS} />
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <FilterSelect testid="filter-set" value={f.set_id} onChange={(v) => setF("set_id", v)} placeholder="All sets" options={meta.sets.map((s) => ({ value: s.id, label: s.name }))} />
+          <SetSelect testid="filter-set" sets={meta.sets} value={f.set_id} onChange={(v) => setF("set_id", v)} placeholder="All sets" />
           <FilterSelect testid="filter-rarity" value={f.rarity} onChange={(v) => setF("rarity", v)} placeholder="All rarities" options={meta.rarities.map((r) => ({ value: r, label: r }))} />
           <FilterSelect testid="filter-sort" value={f.sort} onChange={(v) => setF("sort", v)} placeholder="Default order" options={SORTS.slice(1).map((s) => ({ value: s.v, label: s.l }))} />
           {hasFilters && <Btn variant="ghost" onClick={() => { setText(""); setSp({}); }} data-testid="clear-filters-button"><X className="h-4 w-4" /> Clear</Btn>}

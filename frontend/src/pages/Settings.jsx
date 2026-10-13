@@ -4,7 +4,7 @@ import { Database, Play } from "lucide-react";
 import { api, formatErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { PageTitle, Btn, ProgressBar } from "@/components/UI";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SetSelect } from "@/components/SetSelect";
 
 export default function Settings() {
   const { user, logout } = useAuth();
@@ -47,10 +47,7 @@ export default function Settings() {
           <Btn variant="dark" onClick={() => start({})} disabled={st?.running} data-testid="index-all-button">Index ALL sets (~20k cards)</Btn>
         </div>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <Select value={pick} onValueChange={setPick}>
-            <SelectTrigger className="h-11 rounded-full sm:w-72" data-testid="index-set-select"><SelectValue placeholder="Pick a single set…" /></SelectTrigger>
-            <SelectContent className="max-h-80">{sets.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-          </Select>
+          <SetSelect testid="index-set-select" sets={sets} value={pick} onChange={setPick} placeholder="Pick a single set…" allowAll={false} className="sm:w-72" />
           <Btn variant="ghost" disabled={!pick || st?.running} onClick={() => start({ set_ids: [pick] })} data-testid="index-set-button">Index this set</Btn>
         </div>
       </div>

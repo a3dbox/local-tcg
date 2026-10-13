@@ -3,10 +3,38 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Heart, Minus, Plus, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
-import { api, formatErr, usd, eur, TYPE_COLORS, logoImg } from "@/lib/api";
+import { api, formatErr, usd, eur, gbp, vLabel, TYPE_COLORS, logoImg } from "@/lib/api";
 import { CardImage, CardTile, CardGrid } from "@/components/CardTile";
 import { Spinner, Btn } from "@/components/UI";
 import { CardPriceChart } from "@/components/Charts";
+import { MoveSelect } from "@/pages/Storage";
+
+function WherePanel({ where, locations, onMoved }) {
+  if (!where?.length) return null;
+  return (
+    <div className="mt-4 rounded-2xl bg-white p-3" data-testid="where-panel">
+      <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-slate-500">Where are my copies?</p>
+      {where.map((w) => (
+        <div key={`${w.item_id}-${w.location_id}`} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 py-1.5 text-sm last:border-0" data-testid={`where-row-${w.location_id}-${w.variant}`}>
+          <span><b>{w.quantity}×</b> {vLabel(w.variant)} · <span className={w.location_id === "unassigned" ? "text-slate-400" : "font-bold"}>{w.name}</span></span>
+          <MoveSelect item={w} from={w.location_id} locations={locations} onMoved={onMoved} testid={`where-move-${w.location_id}-${w.variant}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AddToCustomSet({ cardId }) {
+  const [sets, setSets] = useState([]);
+  useEffect(() => { api.get("/custom-sets").then((r) => setSets(r.data)); }, []);
+  if (!sets.length) return <Link to="/my-sets" className="text-sm font-bold text-[#E3350D]" data-testid="create-custom-set-link">+ Create a custom set</Link>;
+  const add = async (sid) => { if (!sid) return; await api.post(`/custom-sets/${sid}/cards`, { card_id: cardId }); toast.success(`Added to ${sets.find((s) => s.id === sid).name}`); };
+  return (
+    <select value="" onChange={(e) => add(e.target.value)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold" data-testid="add-to-custom-set-select">
+      <option value="">+ Add to my set…</option>{sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select>
+  );
+}
 
 const Row = ({ k, v }) => v == null || v === "" ? null : (
   <div className="flex justify-between gap-4 border-b border-slate-100 py-2 text-sm"><span className="text-slate-500">{k}</span><span className="text-right font-bold">{v}</span></div>
@@ -17,7 +45,7 @@ function VariantRow({ v, onSet }) {
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white p-3" data-testid={`variant-row-${v.type}`}>
       <div className="min-w-0">
         <p className="font-display font-bold">{v.label}</p>
-        <p className="text-sm text-slate-500"><span className="font-bold text-slate-800">{usd(v.price_usd)}</span> · {eur(v.price_eur)}</p>
+        <p className="text-sm text-slate-500"><span className="font-bold text-slate-800">{gbp(v.price_gbp)}</span> <span className="text-xs">({usd(v.price_usd)} · {eur(v.price_eur)})</span></p>
       </div>
       <div className="flex items-center gap-2">
         <button onClick={() => onSet(v, v.owned - 1)} disabled={!v.owned} className="press flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 disabled:opacity-30" data-testid={`variant-minus-${v.type}`}><Minus className="h-4 w-4" strokeWidth={3} /></button>
@@ -28,7 +56,10 @@ function VariantRow({ v, onSet }) {
   );
 }
 
-function PriceTables({ pricing }) {
+function PriceTables({ pricing, fx }) {
+  const fu = (v) => (v == null || !fx?.usd_gbp ? null : v * fx.usd_gbp);
+  const fe = (v) => (v == null || !fx?.eur_gbp ? null : v * fx.eur_gbp);
+  const both = (v) => (v == null ? null : `${gbp(fe(v))} (${eur(v)})`);
   const tp = pricing?.tcgplayer || {};
   const cm = pricing?.cardmarket;
   const tpRows = Object.entries(tp).filter(([, e]) => e && typeof e === "object");
@@ -37,12 +68,12 @@ function PriceTables({ pricing }) {
     <div className="grid gap-4 md:grid-cols-2" data-testid="price-tables">
       {tpRows.length > 0 && (
         <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-slate-500">TCGplayer (USD)</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-slate-500">TCGplayer · converted to GBP</p>
           {tpRows.map(([k, e]) => (
             <div key={k} className="mb-2"><p className="font-display text-sm font-bold capitalize">{k.replace(/-/g, " ")}</p>
               <div className="grid grid-cols-4 gap-1 text-center text-xs">
                 {[["Low", e.lowPrice], ["Mid", e.midPrice], ["High", e.highPrice], ["Market", e.marketPrice]].map(([l, p]) => (
-                  <div key={l} className="rounded-lg bg-white p-1.5"><p className="text-slate-500">{l}</p><p className="font-bold">{usd(p)}</p></div>
+                  <div key={l} className="rounded-lg bg-white p-1.5"><p className="text-slate-500">{l}</p><p className="font-bold">{gbp(fu(p))}</p><p className="text-[10px] text-slate-400">{usd(p)}</p></div>
                 ))}
               </div>
             </div>
@@ -51,10 +82,10 @@ function PriceTables({ pricing }) {
       )}
       {cm && (
         <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-slate-500">Cardmarket (EUR)</p>
-          <Row k="Trend" v={eur(cm.trend)} /><Row k="Average" v={eur(cm.avg)} /><Row k="Lowest" v={eur(cm.low)} />
-          <Row k="7-day avg" v={eur(cm.avg7)} /><Row k="30-day avg" v={eur(cm.avg30)} />
-          {cm["trend-holo"] ? <Row k="Holo / Reverse trend" v={eur(cm["trend-holo"])} /> : null}
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-slate-500">Cardmarket · converted to GBP</p>
+          <Row k="Trend" v={both(cm.trend)} /><Row k="Average" v={both(cm.avg)} /><Row k="Lowest" v={both(cm.low)} />
+          <Row k="7-day avg" v={both(cm.avg7)} /><Row k="30-day avg" v={both(cm.avg30)} />
+          {cm["trend-holo"] ? <Row k="Holo / Reverse trend" v={both(cm["trend-holo"])} /> : null}
         </div>
       )}
     </div>
@@ -66,6 +97,8 @@ export default function CardDetail() {
   const nav = useNavigate();
   const [d, setD] = useState(null);
   const [prints, setPrints] = useState([]);
+  const [locations, setLocations] = useState([]);
+  useEffect(() => { api.get("/locations").then((r) => setLocations(r.data.locations)); }, []);
   const load = useCallback(() => api.get(`/cards/${id}`).then((r) => setD(r.data)).catch((e) => toast.error(formatErr(e))), [id]);
   useEffect(() => { setD(null); load(); }, [load]);
   useEffect(() => {
@@ -78,7 +111,7 @@ export default function CardDetail() {
   const setQty = async (v, q) => {
     try {
       await api.post("/collection/set-qty", { card_id: id, variant: v.type, quantity: Math.max(0, q) });
-      if (q > v.owned) { toast.success(`Added ${c.name} (${v.label})`); if (q === 1 && (v.price_usd || 0) > 20) confetti({ particleCount: 120, spread: 80 }); }
+      if (q > v.owned) { toast.success(`Added ${c.name} (${v.label})`); if (q === 1 && (v.price_gbp || 0) > 15) confetti({ particleCount: 120, spread: 80 }); }
       load();
     } catch (e) { toast.error(formatErr(e)); }
   };
@@ -117,8 +150,10 @@ export default function CardDetail() {
               </Btn>
             </div>
             <div className="space-y-2">{d.variants.map((v) => <VariantRow key={v.type} v={v} onSet={setQty} />)}</div>
+            <WherePanel where={d.where} locations={locations} onMoved={load} />
+            <div className="mt-4"><AddToCustomSet cardId={id} /></div>
           </div>
-          <div><h2 className="mb-3 font-display text-xl font-bold">Prices</h2><PriceTables pricing={c.pricing} /></div>
+          <div><h2 className="mb-3 font-display text-xl font-bold">Prices</h2><PriceTables pricing={c.pricing} fx={d.fx} /></div>
           <CardPriceChart cardId={id} />
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-3xl bg-white p-5">

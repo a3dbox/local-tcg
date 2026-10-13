@@ -9,6 +9,9 @@ import httpx
 
 BASE = os.environ["TCGDEX_BASE"]
 POKEAPI = os.environ["POKEAPI_BASE"]
+FX_BASE = os.environ["FX_BASE"]
+SYMBOL_BASE = os.environ["SYMBOL_BASE"]
+FX = {"eur_gbp": None, "usd_gbp": None}
 DAY = 24 * 3600
 http = httpx.AsyncClient(timeout=30, headers={"User-Agent": "PokeBinder/1.0"}, follow_redirects=True)
 _sem = asyncio.Semaphore(8)
@@ -63,6 +66,34 @@ def to_int(s):
     return int(m.group(1)) if m else None
 
 
+def search_params(q=None, set_id=None, type=None, rarity=None, category=None, dex=None, illustrator=None, exact=False, sort=None):
+    p = {}
+    if q:
+        p["name"] = f"eq:{q}" if exact else q
+    if set_id:
+        p["set.id"] = f"eq:{set_id}"
+    if type:
+        p["types"] = type
+    if rarity:
+        p["rarity"] = f"eq:{rarity}"
+    if category:
+        p["category"] = category
+    if dex:
+        p["dexId"] = f"eq:{dex}"
+    if illustrator:
+        p["illustrator"] = illustrator
+    if sort:
+        p["sort:field"] = sort.lstrip("-")
+        p["sort:order"] = "DESC" if sort.startswith("-") else "ASC"
+    return p
+
+
+def symbol_url(set_id: str) -> str:
+    sid = re.sub(r"^([a-z]+)0+(\d)", r"\1\2", set_id.lower())
+    sid = sid.replace(".5", "pt5") if sid.startswith(("sv", "me")) else sid.replace(".", "")
+    return f"{SYMBOL_BASE}/{sid}/symbol.png"
+
+
 def variants_of(card) -> list:
     out = []
     for v in card.get("variants_detailed") or []:
@@ -73,6 +104,22 @@ def variants_of(card) -> list:
     if not out:
         out = [k for k, on in (card.get("variants") or {}).items() if on]
     return out or ["normal"]
+
+
+async def refresh_fx(db):
+    d = await fetch_url(db, f"{FX_BASE}/latest", {"base": "EUR", "symbols": "GBP,USD"}, ttl=12 * 3600)
+    if d and d.get("rates", {}).get("GBP") and d["rates"].get("USD"):
+        FX["eur_gbp"] = d["rates"]["GBP"]
+        FX["usd_gbp"] = d["rates"]["GBP"] / d["rates"]["USD"]
+    return FX
+
+
+def to_gbp(usd=None, eur=None):
+    if eur is not None and FX["eur_gbp"]:
+        return round(eur * FX["eur_gbp"], 2)
+    if usd is not None and FX["usd_gbp"]:
+        return round(usd * FX["usd_gbp"], 2)
+    return None
 
 
 def price_for(card, variant) -> dict:
@@ -95,7 +142,7 @@ def price_for(card, variant) -> dict:
     if variant in ("holo", "reverse"):
         eur = cm.get("trend-holo") or cm.get("avg-holo")
     eur = eur or cm.get("trend") or cm.get("avg")
-    return {"price_usd": usd, "price_eur": eur}
+    return {"price_usd": usd, "price_eur": eur, "price_gbp": to_gbp(usd, eur)}
 
 
 def summarize(card) -> dict:

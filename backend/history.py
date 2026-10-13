@@ -22,10 +22,20 @@ async def record_card_prices(card):
 async def snapshot_user(uid):
     st = await collection_stats(uid)
     await db.value_history.update_one({"user_id": uid, "date": today()}, {"$set": {
-        "value_usd": st["value_usd"], "value_eur": st["value_eur"], "total_cards": st["total_cards"]}}, upsert=True)
+        "value_usd": st["value_usd"], "value_eur": st["value_eur"], "value_gbp": st["value_gbp"],
+        "total_cards": st["total_cards"]}}, upsert=True)
+
+
+async def migrate_gbp():
+    for coll in (db.collection_items, db.wishlist):
+        async for d in coll.find({"price_gbp": None}, {"price_usd": 1, "price_eur": 1}):
+            await coll.update_one({"_id": d["_id"]}, {"$set": {"price_gbp": tcgdex.to_gbp(d.get("price_usd"), d.get("price_eur"))}})
+    async for d in db.value_history.find({"value_gbp": None}):
+        await db.value_history.update_one({"_id": d["_id"]}, {"$set": {"value_gbp": tcgdex.to_gbp(d.get("value_usd"), d.get("value_eur"))}})
 
 
 async def daily_job():
+    await tcgdex.refresh_fx(db)
     ids = set(await db.collection_items.distinct("card_id")) | set(await db.wishlist.distinct("card_id"))
     for cid in ids:
         try:
@@ -66,10 +76,10 @@ async def card_history(card_id: str, user: User = Depends(get_current_user)):
     async for d in db.card_price_history.find({"card_id": card_id}).sort("date", 1):
         p = {"date": d["date"]}
         for v, pr in d["prices"].items():
-            p[f"{v}_usd"], p[f"{v}_eur"] = pr.get("price_usd"), pr.get("price_eur")
+            p[f"{v}_usd"], p[f"{v}_eur"], p[f"{v}_gbp"] = pr.get("price_usd"), pr.get("price_eur"), pr.get("price_gbp")
         points.append(p)
     cm = (card.get("pricing") or {}).get("cardmarket") or {}
-    trend = [{"date": _shift(days), "normal": cm.get(k), "holo": cm.get(f"{k}-holo")}
+    trend = [{"date": _shift(days), "normal": tcgdex.to_gbp(eur=cm.get(k)), "holo": tcgdex.to_gbp(eur=cm.get(f"{k}-holo"))}
              for days, k in ((30, "avg30"), (7, "avg7"), (1, "avg1"), (0, "trend"))]
     trend = [t for t in trend if t["normal"] is not None or t["holo"] is not None]
     return {"points": points, "variants": tcgdex.variants_of(card), "cardmarket_trend": trend}

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cardImg, usd } from "@/lib/api";
+import { cardImg, gbp } from "@/lib/api";
 
 const useWide = () => {
   const [wide, setWide] = useState(() => window.innerWidth >= 1024);
@@ -23,7 +23,7 @@ function Pocket({ card, owned, price }) {
         <div className="absolute inset-0 flex flex-col items-center justify-center p-1 text-center">
           <span className="font-mono text-sm font-bold text-slate-500">#{card.localId}</span>
           <span className="line-clamp-2 font-display text-[11px] font-bold text-slate-600">{card.name}</span>
-          {price != null && <span className="mt-0.5 text-[10px] font-bold text-slate-400">{usd(price)}</span>}
+          {price != null && <span className="mt-0.5 text-[10px] font-bold text-slate-400">{gbp(price)}</span>}
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent_40%,rgba(255,255,255,0.35)_50%,transparent_60%)]" />
@@ -36,7 +36,7 @@ const Page = ({ cards, owned, details, side }) => (
   <div className={`grid flex-1 grid-cols-3 gap-2 bg-[#FBF8F1] p-3 sm:gap-3 sm:p-4 ${side === "left" ? "rounded-l-xl" : "rounded-r-xl"} rounded-xl lg:rounded-none ${side === "left" ? "lg:rounded-l-xl" : "lg:rounded-r-xl"}`}>
     {Array.from({ length: 9 }).map((_, i) => {
       const c = cards[i];
-      return <Pocket key={c?.id || `empty-${i}`} card={c} owned={c ? Object.values(owned[c.id] || {}).reduce((a, b) => a + b, 0) : 0} price={c && details?.[c.id]?.price_usd} />;
+      return <Pocket key={c?.id || `empty-${i}`} card={c} owned={c ? Object.values(owned[c.id] || {}).reduce((a, b) => a + b, 0) : 0} price={c && details?.[c.id]?.price_gbp} />;
     })}
   </div>
 );
@@ -60,7 +60,7 @@ export function Binder({ cards, owned, details }) {
   const p1 = spread * (wide ? 2 : 1) + 1;
 
   return (
-    <div data-testid="binder-view" className="select-none">
+    <div data-testid="binder-view" className="mx-auto max-w-4xl select-none">
       <div className="rounded-[28px] bg-[#2B2F3A] p-3 shadow-[0_24px_60px_rgba(0,0,0,0.35)] sm:p-5" style={{ perspective: 1800 }}
         onTouchStart={(e) => setTouch(e.touches[0].clientX)} onTouchEnd={(e) => { if (touch == null) return; const dx = e.changedTouches[0].clientX - touch; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); setTouch(null); }}>
         <AnimatePresence mode="wait" initial={false} custom={dir}>

@@ -1,40 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Camera, Upload, Zap, Trash2, Check, Images, Minus, Plus, ExternalLink } from "lucide-react";
+import { Camera, Upload, Zap, Flashlight, SwitchCamera, Trash2, Check, Images, Minus, Plus, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
-import { api, formatErr, cardImg, usd, vLabel } from "@/lib/api";
+import { api, formatErr, cardImg, gbp, vLabel } from "@/lib/api";
 import { Btn } from "@/components/UI";
-
-const GUIDE_H = 0.82;
-const RATIO = 63 / 88;
-
-function useCamera(videoRef) {
-  const [state, setState] = useState("idle");
-  useEffect(() => {
-    let stream;
-    if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) { setState("unsupported"); return; }
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false })
-      .then((s) => { stream = s; if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(() => {}); } setState("ready"); })
-      .catch(() => setState("denied"));
-    return () => stream?.getTracks().forEach((t) => t.stop());
-  }, [videoRef]);
-  return state;
-}
-
-function grabFrame(video) {
-  const vw = video.videoWidth, vh = video.videoHeight, cw = video.clientWidth, ch = video.clientHeight;
-  if (!vw || !cw) return null;
-  const scale = Math.max(cw / vw, ch / vh);
-  const ox = (vw - cw / scale) / 2, oy = (vh - ch / scale) / 2;
-  const gh = Math.min(ch, ch * GUIDE_H * 1.1), gw = Math.min(cw, gh * RATIO);
-  const sx = ox + (cw - gw) / 2 / scale, sy = oy + (ch - gh) / 2 / scale, sw = gw / scale, sh = gh / scale;
-  const out = Math.min(1, 1400 / sh);
-  const c = document.createElement("canvas");
-  c.width = Math.round(sw * out); c.height = Math.round(sh * out);
-  c.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, c.width, c.height);
-  return new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
-}
+import { useCamera, grabFrame, useSteady, beep, GUIDE_H, STEADY_TEXT } from "@/components/camera";
 
 async function recognise(blob) {
   const fd = new FormData();
@@ -56,7 +27,7 @@ function QueueItem({ it, onChange, onRemove }) {
         {m && (
           <>
             <p className="truncate font-display font-bold">{m.name}</p>
-            <p className="truncate text-xs text-slate-500">{m.set_name} · #{m.local_id} · {usd(m.price_usd)}</p>
+            <p className="truncate text-xs text-slate-500">{m.set_name} · #{m.local_id} · {gbp(m.price_gbp)}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <select value={it.sel} onChange={(e) => onChange({ sel: Number(e.target.value), variant: it.matches[e.target.value].variants?.[0] || "normal" })}
                 className="max-w-[170px] rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold" data-testid={`batch-item-match-${it.key}`}>
@@ -101,12 +72,18 @@ function SingleResult({ res, onAdd }) {
 export default function Scan() {
   const nav = useNavigate();
   const videoRef = useRef(null);
-  const cam = useCamera(videoRef);
+  const [deviceId, setDeviceId] = useState("");
+  const { state: cam, caps, devices, apply } = useCamera(videoRef, deviceId);
+  const [torch, setTorch] = useState(false);
+  const [zoom, setZoom] = useState(null);
+  const [dest, setDest] = useState("");
+  const [locs, setLocs] = useState([]);
+  useEffect(() => { api.get("/locations").then((r) => setLocs(r.data.locations)).catch(() => {}); }, []);
   const [mode, setMode] = useState("single");
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState(null);
   const [queue, setQueue] = useState([]);
-  const [auto, setAuto] = useState(false);
+  const [auto, setAuto] = useState(true);
   const [autoOpen, setAutoOpen] = useState(true);
   const last = useRef({ id: null, t: 0 });
   const busyRef = useRef(false);
@@ -128,11 +105,11 @@ export default function Scan() {
     try {
       const r = await recognise(blob);
       const top = r.matches[0];
-      if (top && auto && top.card_id === last.current.id && Date.now() - last.current.t < 8000) {
+      if ((!top && auto) || (top && auto && top.card_id === last.current.id && Date.now() - last.current.t < 8000)) {
         setQueue((q) => q.filter((x) => x.key !== key));
         return;
       }
-      if (top) { last.current = { id: top.card_id, t: Date.now() }; navigator.vibrate?.(40); }
+      if (top) { last.current = { id: top.card_id, t: Date.now() }; navigator.vibrate?.(40); beep(); }
       patch(key, { status: "done", matches: r.matches, confidence: r.confidence, variant: top?.variants?.[0] || "normal" });
     } catch { patch(key, { status: "error" }); }
   }, [mode, auto, autoOpen, nav]);
@@ -143,11 +120,7 @@ export default function Scan() {
     try { const b = await grabFrame(videoRef.current); if (b) await processBlob(b); } finally { busyRef.current = false; }
   }, [processBlob]);
 
-  useEffect(() => {
-    if (!(mode === "batch" && auto && cam === "ready")) return;
-    const t = setInterval(capture, 2200);
-    return () => clearInterval(t);
-  }, [mode, auto, cam, capture]);
+  const steady = useSteady(videoRef, auto && cam === "ready" && !(mode === "single" && (busy || res)), capture);
 
   const onFiles = async (e) => {
     const files = [...e.target.files];
@@ -155,12 +128,12 @@ export default function Scan() {
     for (const f of mode === "single" ? files.slice(0, 1) : files) await processBlob(f);
   };
   const addOne = async (m) => {
-    try { await api.post("/collection/add", { card_id: m.card_id, variant: m.variants?.[0] || "normal" }); toast.success(`Added ${m.name}`); } catch (e) { toast.error(formatErr(e)); }
+    try { await api.post("/collection/add", { card_id: m.card_id, variant: m.variants?.[0] || "normal", location_id: dest || undefined }); toast.success(`Added ${m.name}`); } catch (e) { toast.error(formatErr(e)); }
   };
   const ready = queue.filter((x) => x.status === "done" && x.matches[x.sel]);
   const addAll = async () => {
     try {
-      const { data } = await api.post("/collection/batch", { items: ready.map((x) => ({ card_id: x.matches[x.sel].card_id, variant: x.variant, quantity: x.qty })) });
+      const { data } = await api.post("/collection/batch", { location_id: dest || undefined, items: ready.map((x) => ({ card_id: x.matches[x.sel].card_id, variant: x.variant, quantity: x.qty })) });
       toast.success(`Added ${data.added} cards to your collection!`);
       confetti({ particleCount: 150, spread: 90 });
       setQueue((q) => q.filter((x) => !ready.includes(x)));
@@ -200,15 +173,20 @@ export default function Scan() {
                 {(busy || auto) && <div className="scan-beam" />}
               </div>
             )}
-            {mode === "batch" && auto && <span className="absolute left-4 top-4 rounded-full bg-[#E3350D] px-3 py-1 text-xs font-black text-white">AUTO</span>}
+            {auto && cam === "ready" && <span className="absolute left-4 top-4 rounded-full bg-[#E3350D] px-3 py-1 text-xs font-black text-white">AUTO</span>}
+            {cam === "ready" && STEADY_TEXT[steady] && <p className={`absolute inset-x-4 bottom-4 rounded-full px-4 py-2 text-center text-sm font-bold backdrop-blur ${steady === "blurry" ? "bg-amber-400/90 text-slate-900" : steady === "waiting" ? "bg-emerald-500/90 text-white" : "bg-black/60 text-white"}`} data-testid="steady-status">{STEADY_TEXT[steady]}</p>}
+            {cam === "ready" && (
+              <div className="absolute right-3 top-3 flex flex-col gap-2">
+                {caps.torch && <button onClick={() => { apply({ torch: !torch }); setTorch(!torch); }} className={`rounded-full p-2.5 ${torch ? "bg-[#FFCC00] text-slate-900" : "bg-black/50 text-white"}`} data-testid="torch-toggle" aria-label="Torch"><Flashlight className="h-5 w-5" /></button>}
+                {devices.length > 1 && <button onClick={() => { const i = devices.findIndex((d) => d.deviceId === deviceId); setDeviceId(devices[(i + 1) % devices.length].deviceId); }} className="rounded-full bg-black/50 p-2.5 text-white" data-testid="switch-camera-button" aria-label="Switch camera"><SwitchCamera className="h-5 w-5" /></button>}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             <Btn onClick={capture} disabled={cam !== "ready" || (mode === "single" && busy)} className="px-8 py-3 text-lg" data-testid="capture-button">
               <Camera className="h-5 w-5" /> {busy ? "Scanning…" : "Capture"}
             </Btn>
-            {mode === "batch" && (
-              <Btn variant={auto ? "yellow" : "ghost"} onClick={() => setAuto(!auto)} disabled={cam !== "ready"} data-testid="auto-scan-toggle"><Zap className="h-5 w-5" /> Auto {auto ? "on" : "off"}</Btn>
-            )}
+            <Btn variant={auto ? "yellow" : "ghost"} onClick={() => setAuto(!auto)} disabled={cam !== "ready"} data-testid="auto-scan-toggle"><Zap className="h-5 w-5" /> Auto snap {auto ? "on" : "off"}</Btn>
             <label className="press inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 font-display font-bold" data-testid="take-photo-button">
               <Upload className="h-5 w-5" /> Take photo
               <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onFiles} data-testid="take-photo-input" />
@@ -218,6 +196,14 @@ export default function Scan() {
               <input type="file" accept="image/*" multiple={mode === "batch"} className="hidden" onChange={onFiles} data-testid="upload-photos-input" />
             </label>
           </div>
+          {cam === "ready" && caps.zoom && (
+            <label className="flex items-center gap-3 text-sm font-semibold text-slate-600">Zoom
+              <input type="range" min={caps.zoom.min} max={Math.min(caps.zoom.max, 5)} step={caps.zoom.step || 0.1} value={zoom ?? caps.zoom.min} onChange={(e) => { const z = Number(e.target.value); setZoom(z); apply({ zoom: z }); }} className="flex-1" data-testid="zoom-slider" />
+            </label>
+          )}
+          <select value={dest} onChange={(e) => setDest(e.target.value)} className="h-11 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-bold" data-testid="scan-destination-select">
+            <option value="">Add cards to: no storage yet</option>{locs.map((l) => <option key={l.id} value={l.id}>Add cards to: {l.name}</option>)}
+          </select>
           {mode === "single" && (
             <label className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-600">
               <input type="checkbox" checked={autoOpen} onChange={(e) => setAutoOpen(e.target.checked)} data-testid="auto-open-checkbox" /> Open card page automatically when sure
@@ -226,7 +212,9 @@ export default function Scan() {
         </div>
         <div>
           {mode === "single" ? (
-            busy ? <p className="animate-pulse font-display text-lg font-bold text-slate-500">Recognising card…</p> : <SingleResult res={res} onAdd={addOne} />
+            busy ? <p className="animate-pulse font-display text-lg font-bold text-slate-500">Recognising card…</p> : (
+              <div className="space-y-3"><SingleResult res={res} onAdd={addOne} />{res && <Btn variant="dark" onClick={() => setRes(null)} data-testid="scan-again-button"><Camera className="h-4 w-4" /> Scan another</Btn>}</div>
+            )
           ) : (
             <div className="space-y-3" data-testid="batch-queue">
               <div className="flex flex-wrap items-center justify-between gap-3">

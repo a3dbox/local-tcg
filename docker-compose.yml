@@ -18,6 +18,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       TCGDEX_BASE: https://api.tcgdex.net/v2/en
       POKEAPI_BASE: https://pokeapi.co/api/v2
+      FX_BASE: https://api.frankfurter.dev/v1
+      SYMBOL_BASE: https://images.pokemontcg.io
       OLLAMA_URL: ${OLLAMA_URL:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
 

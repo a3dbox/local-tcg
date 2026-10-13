@@ -28,9 +28,12 @@ app = FastAPI(title="PokeBinder")
 api = APIRouter(prefix="/api")
 
 
-from ops import now, owned_map, add_item, collection_stats  # noqa: E402
+from ops import now, owned_map, add_item, collection_stats, clamp_placements  # noqa: E402
 import history  # noqa: E402
 import family  # noqa: E402
+import admin  # noqa: E402
+import locations  # noqa: E402
+import custom_sets  # noqa: E402
 
 
 # ---------- meta / cards ----------
@@ -43,7 +46,7 @@ async def root():
 async def meta(user: User = Depends(get_current_user)):
     types, rarities, sets = await asyncio.gather(tcgdex.fetch(db, "/types"), tcgdex.fetch(db, "/rarities"), tcgdex.all_sets(db))
     return {"types": types or [], "rarities": [r for r in (rarities or []) if r != "None"],
-            "sets": [{"id": s["id"], "name": s["name"]} for s in reversed(sets)]}
+            "sets": [{"id": s["id"], "name": s["name"], "logo": s.get("logo"), "icon": tcgdex.symbol_url(s["id"])} for s in reversed(sets)]}
 
 
 @api.get("/cards")
@@ -52,24 +55,9 @@ async def search_cards(q: Optional[str] = None, set_id: Optional[str] = None, ty
                        illustrator: Optional[str] = None, exact: bool = False, sort: Optional[str] = None,
                        page: int = 1, size: int = 36, user: User = Depends(get_current_user)):
     size = max(1, min(size, 250))
-    params = {"pagination:page": page, "pagination:itemsPerPage": size}
-    if q:
-        params["name"] = f"eq:{q}" if exact else q
-    if set_id:
-        params["set.id"] = f"eq:{set_id}"
-    if type:
-        params["types"] = type
-    if rarity:
-        params["rarity"] = f"eq:{rarity}"
-    if category:
-        params["category"] = category
-    if dex:
-        params["dexId"] = f"eq:{dex}"
-    if illustrator:
-        params["illustrator"] = illustrator
-    if sort:
-        params["sort:field"] = sort.lstrip("-")
-        params["sort:order"] = "DESC" if sort.startswith("-") else "ASC"
+    params = {"pagination:page": page, "pagination:itemsPerPage": size,
+              **tcgdex.search_params(q=q, set_id=set_id, type=type, rarity=rarity, category=category, dex=dex,
+                                     illustrator=illustrator, exact=exact, sort=sort)}
     items = await tcgdex.fetch(db, "/cards", params, ttl=6 * 3600) or []
     owned = await owned_map(user.id, {"card_id": {"$in": [c["id"] for c in items]}})
     for c in items:
@@ -92,7 +80,17 @@ async def card_detail(card_id: str, user: User = Depends(get_current_user)):
         await db.collection_items.update_many({"card_id": card_id, "variant": v}, {"$set": price})
     await history.record_card_prices(card)
     wish = await db.wishlist.find_one({"user_id": user.id, "card_id": card_id})
-    return {"card": card, "variants": variants, "wishlisted": bool(wish)}
+    locs = {str(x["_id"]): x["name"] async for x in db.locations.find({"user_id": user.id})}
+    where = []
+    async for it in db.collection_items.find({"user_id": user.id, "card_id": card_id}):
+        pl = it.get("placements") or {}
+        for lid, q in pl.items():
+            if lid in locs and q > 0:
+                where.append({"item_id": str(it["_id"]), "variant": it["variant"], "location_id": lid, "name": locs[lid], "quantity": q})
+        rest = it["quantity"] - sum(pl.values())
+        if rest > 0:
+            where.append({"item_id": str(it["_id"]), "variant": it["variant"], "location_id": "unassigned", "name": "Not stored yet", "quantity": rest})
+    return {"card": card, "variants": variants, "wishlisted": bool(wish), "fx": tcgdex.FX, "where": where}
 
 
 # ---------- sets ----------
@@ -183,10 +181,12 @@ class AddIn(BaseModel):
     card_id: str
     variant: str = "normal"
     quantity: int = 1
+    location_id: Optional[str] = None
 
 
 class BatchIn(BaseModel):
     items: List[AddIn]
+    location_id: Optional[str] = None
 
 
 class QtyIn(BaseModel):
@@ -202,7 +202,7 @@ class ItemPatch(BaseModel):
 
 @api.post("/collection/add")
 async def collection_add(body: AddIn, user: User = Depends(get_current_user)):
-    name = await add_item(user.id, body.card_id, body.variant, max(1, body.quantity))
+    name = await add_item(user.id, body.card_id, body.variant, max(1, body.quantity), body.location_id)
     return {"ok": True, "name": name}
 
 
@@ -211,7 +211,7 @@ async def collection_batch(body: BatchIn, user: User = Depends(get_current_user)
     added, failed = 0, []
     for it in body.items:
         try:
-            await add_item(user.id, it.card_id, it.variant, max(1, it.quantity))
+            await add_item(user.id, it.card_id, it.variant, max(1, it.quantity), it.location_id or body.location_id)
             added += it.quantity
         except HTTPException:
             failed.append(it.card_id)
@@ -228,12 +228,14 @@ async def collection_set_qty(body: QtyIn, user: User = Depends(get_current_user)
         await add_item(user.id, body.card_id, body.variant, body.quantity)
     else:
         await db.collection_items.update_one(flt, {"$set": {"quantity": body.quantity, "updated_at": now()}})
+        await clamp_placements(flt)
     return {"ok": True, "quantity": body.quantity}
 
 
 @api.get("/collection")
 async def collection_list(q: Optional[str] = None, set_id: Optional[str] = None, variant: Optional[str] = None,
-                          sort: str = "recent", user: User = Depends(get_current_user)):
+                          sort: str = "recent", dupes: bool = False, location_id: Optional[str] = None,
+                          user: User = Depends(get_current_user)):
     flt = {"user_id": user.id}
     if q:
         flt["name"] = {"$regex": q, "$options": "i"}
@@ -241,10 +243,19 @@ async def collection_list(q: Optional[str] = None, set_id: Optional[str] = None,
         flt["set_id"] = set_id
     if variant:
         flt["variant"] = variant
-    order = {"recent": [("created_at", -1)], "value": [("price_usd", -1)], "name": [("name", 1)],
+    order = {"recent": [("created_at", -1)], "value": [("price_gbp", -1)], "name": [("name", 1)],
              "set": [("set_id", 1), ("local_num", 1)]}.get(sort, [("created_at", -1)])
+    if location_id and location_id != "unassigned":
+        flt[f"placements.{location_id}"] = {"$gt": 0}
     docs = await db.collection_items.find(flt).sort(order).to_list(5000)
-    return [CollectionItem.from_mongo(d).model_dump() for d in docs]
+    if location_id == "unassigned":
+        docs = [d for d in docs if d["quantity"] > sum((d.get("placements") or {}).values())]
+    totals = {}
+    async for d in db.collection_items.find({"user_id": user.id}, {"card_id": 1, "quantity": 1}):
+        totals[d["card_id"]] = totals.get(d["card_id"], 0) + d["quantity"]
+    if dupes:
+        docs = [d for d in docs if totals.get(d["card_id"], 0) > 1]
+    return [{**CollectionItem.from_mongo(d).model_dump(), "card_total": totals.get(d["card_id"], 0)} for d in docs]
 
 
 @api.patch("/collection/{item_id}")
@@ -255,6 +266,7 @@ async def collection_patch(item_id: str, body: ItemPatch, user: User = Depends(g
     res = await db.collection_items.update_one({"_id": ObjectId(item_id), "user_id": user.id}, {"$set": {**upd, "updated_at": now()}})
     if not res.matched_count:
         raise HTTPException(404, "Item not found")
+    await clamp_placements({"_id": ObjectId(item_id)})
     return {"ok": True}
 
 
@@ -273,10 +285,10 @@ async def stats(user: User = Depends(get_current_user)):
 async def export_csv(user: User = Depends(get_current_user)):
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["card_id", "name", "set", "number", "rarity", "variant", "quantity", "condition", "price_usd", "price_eur"])
+    w.writerow(["card_id", "name", "set", "number", "rarity", "variant", "quantity", "condition", "price_gbp", "price_usd", "price_eur"])
     async for d in db.collection_items.find({"user_id": user.id}).sort([("set_id", 1), ("local_num", 1)]):
         w.writerow([d["card_id"], d["name"], d.get("set_name"), d.get("local_id"), d.get("rarity"), d["variant"],
-                    d["quantity"], d.get("condition"), d.get("price_usd"), d.get("price_eur")])
+                    d["quantity"], d.get("condition"), d.get("price_gbp"), d.get("price_usd"), d.get("price_eur")])
     buf.seek(0)
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": "attachment; filename=collection.csv"})
@@ -341,7 +353,7 @@ async def pokedex(user: User = Depends(get_current_user)):
 async def dashboard(user: User = Depends(get_current_user)):
     st = await collection_stats(user.id)
     recent = await db.collection_items.find({"user_id": user.id}).sort("created_at", -1).to_list(12)
-    top = await db.collection_items.find({"user_id": user.id, "price_usd": {"$ne": None}}).sort("price_usd", -1).to_list(6)
+    top = await db.collection_items.find({"user_id": user.id, "price_gbp": {"$ne": None}}).sort("price_gbp", -1).to_list(6)
     goals = await goals_with_progress(user.id)
     ser = lambda ds: [CollectionItem.from_mongo(d).model_dump() for d in ds]  # noqa: E731
     return {"stats": st, "recent": ser(recent), "top": ser(top), "goals": goals[:6]}
@@ -382,6 +394,9 @@ async def index_build(body: IndexIn, user: User = Depends(get_current_user)):
 app.include_router(auth_router)
 app.include_router(history.router)
 app.include_router(family.router)
+app.include_router(admin.router)
+app.include_router(locations.router)
+app.include_router(custom_sets.router)
 app.include_router(api)
 app.add_middleware(CORSMiddleware, allow_credentials=False, allow_origins=os.environ["CORS_ORIGINS"].split(","),
                    allow_methods=["*"], allow_headers=["*"])
@@ -397,6 +412,13 @@ async def startup():
     await db.card_price_history.create_index([("card_id", 1), ("date", 1)], unique=True)
     await db.value_history.create_index([("user_id", 1), ("date", 1)], unique=True)
     await db.trade_log.create_index([("from_id", 1), ("to_id", 1)])
+    await db.locations.create_index("user_id")
+    await db.custom_sets.create_index("user_id")
+    try:
+        await tcgdex.refresh_fx(db)
+    except Exception as e:  # noqa
+        logging.warning("FX refresh failed: %s", e)
+    await history.migrate_gbp()
     asyncio.create_task(scanner.load_index(db))
     asyncio.create_task(history.daily_loop())
 

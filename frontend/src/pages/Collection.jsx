@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Download, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
-import { api, usd, eur, API_BASE } from "@/lib/api";
+import { api, gbp, API_BASE } from "@/lib/api";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { PageTitle, Spinner, Empty, Btn, Chips } from "@/components/UI";
 import { CollectionValueChart } from "@/components/Charts";
@@ -16,10 +16,14 @@ export default function Collection() {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("recent");
   const [variant, setVariant] = useState("");
+  const [dupes, setDupes] = useState("");
+  const [loc, setLoc] = useState("");
+  const [locs, setLocs] = useState([]);
+  useEffect(() => { api.get("/locations").then((r) => setLocs(r.data.locations)); }, []);
   useEffect(() => {
-    const t = setTimeout(() => api.get("/collection", { params: { q: q || undefined, sort, variant: variant || undefined } }).then((r) => setItems(r.data)), 250);
+    const t = setTimeout(() => api.get("/collection", { params: { q: q || undefined, sort, variant: variant || undefined, dupes: dupes ? true : undefined, location_id: loc || undefined } }).then((r) => setItems(r.data)), 250);
     return () => clearTimeout(t);
-  }, [q, sort, variant]);
+  }, [q, sort, variant, dupes, loc]);
   useEffect(() => { api.get("/collection/stats").then((r) => setStats(r.data)); }, []);
 
   const exportCsv = async () => {
@@ -41,7 +45,7 @@ export default function Collection() {
       </PageTitle>
       {stats && (
         <div className="mb-6 flex flex-wrap gap-3" data-testid="collection-stats">
-          {[["Value", `${usd(stats.value_usd)} · ${eur(stats.value_eur)}`], ["Cards", stats.total_cards], ["Unique", stats.unique_cards], ["Sets", stats.sets_started]].map(([k, v]) => (
+          {[["Value", gbp(stats.value_gbp)], ["Cards", stats.total_cards], ["Unique", stats.unique_cards], ["Sets", stats.sets_started]].map(([k, v]) => (
             <div key={k} className="rounded-full bg-white px-5 py-2 shadow-sm"><span className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">{k}</span> <span className="ml-1 font-display font-black">{v}</span></div>
           ))}
         </div>
@@ -57,6 +61,12 @@ export default function Collection() {
           <SelectContent>{SORTS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
         </Select>
       </div>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <Chips testid="collection-dupes-filter" value={dupes} onChange={setDupes} options={[{ value: "1", label: "Duplicates only" }]} />
+        <select value={loc} onChange={(e) => setLoc(e.target.value)} className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-bold" data-testid="collection-location-filter">
+          <option value="">All storage</option><option value="unassigned">Not stored yet</option>{locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+      </div>
       <div className="mb-6"><Chips testid="collection-variant-filter" value={variant} onChange={setVariant} options={[{ value: "normal", label: "Normal" }, { value: "holo", label: "Holo" }, { value: "reverse", label: "Reverse Holo" }, { value: "firstEdition", label: "1st Edition" }]} /></div>
       {!items ? <Spinner /> : items.length === 0 ? (
         <Empty testid="collection-empty" title="No cards here yet" text="Scan your cards or add them from any card page.">
@@ -64,7 +74,7 @@ export default function Collection() {
         </Empty>
       ) : (
         <CardGrid testid="collection-grid">
-          {items.map((it, i) => <CardTile key={it.id} index={i} card={{ id: it.card_id, name: it.name, image: it.image, localId: `${it.local_id} · ${it.set_name || ""}` }} owned={it.quantity} price={it.price_usd} variant={it.variant} />)}
+          {items.map((it, i) => <CardTile key={it.id} index={i} card={{ id: it.card_id, name: it.name, image: it.image, localId: `${it.local_id} · ${it.set_name || ""}` }} owned={it.card_total > it.quantity ? `${it.quantity}/${it.card_total}` : it.quantity} price={it.price_gbp} variant={it.variant} />)}
         </CardGrid>
       )}
     </div>

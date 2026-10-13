@@ -1,4 +1,4 @@
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional, List, Dict
 from bson import ObjectId
 from pydantic import BaseModel, BeforeValidator, Field, ConfigDict
 
@@ -48,5 +48,7 @@ class CollectionItem(BaseDocument):
     condition: str = "NM"
     price_usd: Optional[float] = None
     price_eur: Optional[float] = None
+    price_gbp: Optional[float] = None
+    placements: Dict[str, int] = {}
     created_at: str
     updated_at: str

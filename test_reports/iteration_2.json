@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 2 covers Binder view, Family trading (backend + UI) and Price history (collection + card). Backend: 11/11 new pytest tests pass against the public URL (members, compare, give, activity, collection_history, card_history + 404s); 20/20 regression tests still pass. UI: binder shows 18 pockets on desktop (2 pages/18 pockets) and 9 on mobile, page indicator correct ('Page 1\u20132 of 23'), binder-next-button, binder-prev-button and \u2190/\u2192 arrow keys all flip pages, layout persists in localStorage key pb_set_layout across reload, grid toggle restores the grid+Owned/Missing chips. Owned Furret pocket renders full-colour (no grayscale class) once added. Family: created user A + user B via API, A added 3x swsh3-136 normal, B tracked swsh3 goal \u2192 A's /family page shows family-member-chips-<B id>, family-counts (1 only-you), i-can-give-grid contains give-card-swsh3-136 with 'Goal' badge + 2 spare; clicking give-card-swsh3-136-give and give-confirm-button succeeds, family-activity log receives the gift. Price history: collection-value-chart present on Dashboard and /collection (shows 'History started today' with 1 point as expected), card-price-chart renders on card detail (uses cardmarket trend when only 1 point).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Card detail / Dashboard / My Cards charts", "issues": ["Recharts briefly logs 'width(-1) and height(-1)' warning during initial mount before container measures itself. Cosmetic console noise only; chart renders correctly immediately after. Could set an explicit minWidth={0} on <ResponsiveContainer> or wrap in a sized parent to silence."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_family_history.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration_2_family.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "family.py _give_list(): spare_qty calculation is a bit confusing \u2014 for single-variant cards it correctly reports (variant_qty - 1), but for multi-variant cards it reports (total_qty - 1) regardless of the chosen spare_variant. That can over-report spares when the chosen variant only has 1 copy but another variant has many. Consider: spare_qty = max(0, max_variant_qty - 1).",
+    "family.py give(): no transaction / rollback \u2014 if add_item to recipient fails after the sender's quantity was already decremented, the copy is lost. Low risk on local Mongo but worth a note.",
+    "history.collection_history forces a snapshot_user() on every GET; cheap, but means the 'first point' is created the moment the chart is first opened. Fine for UX ('History started today') but documents an implicit side-effect of a GET.",
+    "server.py still uses deprecated @app.on_event startup/shutdown (same note as iteration_1).",
+    "Binder.jsx: `pages[1]?.length` is used to decide whether to show the dash in 'Page X\u2013Y of N'. If the last spread on desktop has <=9 cards, only one page is drawn \u2014 correct \u2014 but p1+1 is still the right-side index, so the fallback is correct. OK.",
+    "Charts.jsx CardPriceChart: when backend returns empty cardmarket_trend AND only 1 point, chart body may be empty; copy still says 'Cardmarket 30/7/1 day averages' which may be misleading. Low priority."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_family_history.py"
+  ],
+  "success_rate": {"backend": "100% (31/31: 11 new + 20 regression)", "frontend": "100% of requested flows (binder, family, charts). Scan upload UI step hit a hidden <input type=file> selector collision in the test harness and was skipped \u2014 scan backend already covered by regression + iteration_1 UI test."},
+  "test_credentials": "admin@pokebinder.local / admin123 (works). Ephemeral TEST users created via /api/auth/register with password secret123.",
+  "seed_data_creation": "Each test run registers fresh test_fam_a_* / test_fam_b_* users; adds 3x swsh3-136 to A and swsh3 base goal to B. Idempotent; no cleanup needed (collection_items unique index on user_id+card_id+variant).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Family compare uses ObjectId; invalid-id yields 404 (not 400). Family members list returns ALL other accounts on the server (household model) \u2014 earlier iteration test users will be present. Price history: /collection/history calls snapshot_user() on every GET so the user ALWAYS gets at least 1 point (today) \u2014 chart UI gracefully handles 1-point case with 'History started today'. CardPriceChart falls back to cardmarket_trend when daily history has <2 points. localStorage key for binder layout is pb_set_layout. Full regression + new tests live under /app/backend/tests/ and run in ~9s total with pytest-xdist.",
+  "rca of the issue": "N/A \u2014 no bugs found. The only test-script hiccup was a Playwright selector collision between the hidden camera input (data-testid=take-photo-input) and the Upload input on /scan; use data-testid='upload-photo-input' or the second input index to avoid the ambiguity."
+}

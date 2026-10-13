@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ScanLine, Search, Coins, Layers, LibraryBig, Sparkles } from "lucide-react";
-import { api, usd, eur, logoImg } from "@/lib/api";
+import { api, gbp, logoImg } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { ProgressBar, Spinner, Btn } from "@/components/UI";
@@ -35,7 +35,7 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 sm:gap-6">
-        <Stat icon={Coins} label="Collection value" value={usd(s.value_usd)} sub={eur(s.value_eur)} testid="stat-value" accent="bg-[#FFCC00]" />
+        <Stat icon={Coins} label="Collection value" value={gbp(s.value_gbp)} testid="stat-value" accent="bg-[#FFCC00]" />
         <Stat icon={LibraryBig} label="Total cards" value={s.total_cards} testid="stat-total-cards" />
         <Stat icon={Sparkles} label="Unique cards" value={s.unique_cards} testid="stat-unique-cards" />
         <Stat icon={Layers} label="Sets started" value={s.sets_started} testid="stat-sets-started" />
@@ -65,7 +65,7 @@ export default function Dashboard() {
         <section>
           <h2 className="mb-4 font-display text-2xl font-bold">Most valuable</h2>
           <CardGrid testid="dashboard-top-grid">
-            {d.top.map((it, i) => <CardTile key={it.id} index={i} card={{ id: it.card_id, name: it.name, image: it.image, localId: it.local_id }} owned={it.quantity} price={it.price_usd} variant={it.variant} />)}
+            {d.top.map((it, i) => <CardTile key={it.id} index={i} card={{ id: it.card_id, name: it.name, image: it.image, localId: it.local_id }} owned={it.quantity} price={it.price_gbp} variant={it.variant} />)}
           </CardGrid>
         </section>
       )}

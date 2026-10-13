@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from auth import get_current_user
 from database import db
 from models import User
-from ops import add_item, now
+from ops import add_item, now, clamp_placements
 
 router = APIRouter(prefix="/api/family")
 
@@ -22,11 +22,11 @@ async def _cards(uid):
     async for d in db.collection_items.find({"user_id": uid}):
         c = out.setdefault(d["card_id"], {"card_id": d["card_id"], "name": d["name"], "image": d.get("image"),
                                           "set_id": d.get("set_id"), "set_name": d.get("set_name"),
-                                          "local_id": d.get("local_id"), "qty": 0, "variants": {}, "price_usd": None})
+                                          "local_id": d.get("local_id"), "qty": 0, "variants": {}, "price_gbp": None})
         c["qty"] += d["quantity"]
         c["variants"][d["variant"]] = d["quantity"]
-        if d.get("price_usd") is not None:
-            c["price_usd"] = max(c["price_usd"] or 0, d["price_usd"])
+        if d.get("price_gbp") is not None:
+            c["price_gbp"] = max(c["price_gbp"] or 0, d["price_gbp"])
     return out
 
 
@@ -41,7 +41,7 @@ def _give_list(src, dst, dst_goals):
             spare = max(c["variants"].items(), key=lambda kv: kv[1])
             out.append({**c, "spare_variant": spare[0], "spare_qty": spare[1] - 1 if len(c["variants"]) == 1 else c["qty"] - 1,
                         "needed_for_goal": c["set_id"] in dst_goals})
-    return sorted(out, key=lambda x: (not x["needed_for_goal"], -(x["price_usd"] or 0)))
+    return sorted(out, key=lambda x: (not x["needed_for_goal"], -(x["price_gbp"] or 0)))
 
 
 @router.get("/members")
@@ -84,6 +84,7 @@ async def give(body: GiveIn, user: User = Depends(get_current_user)):
         await db.collection_items.delete_one(flt)
     else:
         await db.collection_items.update_one(flt, {"$inc": {"quantity": -qty}, "$set": {"updated_at": now()}})
+        await clamp_placements(flt)
     await add_item(body.to_user_id, body.card_id, body.variant, qty)
     await db.trade_log.insert_one({"from_id": user.id, "from_name": user.name, "to_id": body.to_user_id, "to_name": to["name"],
                                    "card_id": body.card_id, "name": item["name"], "image": item.get("image"),
