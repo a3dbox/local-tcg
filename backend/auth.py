@@ -104,7 +104,8 @@ async def register(body: RegisterIn):
 @router.post("/login")
 async def login(body: LoginIn, request: Request):
     email = body.email.strip().lower()
-    ident = f"{request.client.host if request.client else 'x'}:{email}"
+    fwd = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    ident = f"{fwd or (request.client.host if request.client else 'x')}:{email}"
     now = datetime.now(timezone.utc)
     att = await db.login_attempts.find_one({"identifier": ident})
     window = now - timedelta(minutes=15)

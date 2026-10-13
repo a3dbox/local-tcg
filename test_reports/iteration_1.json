@@ -1,0 +1,35 @@
+{
+  "summary": "First end-to-end test iteration for PokeBinder. 20/20 backend pytest tests pass against the public URL. Full UI flow (login, search, card detail +/- persistence, wishlist, sets, set detail with goals, goals page, collection stats, pokedex, scanner single+batch, settings index status, user isolation via register+logout) all pass against the deployed Kubernetes preview. Scanner recognises /app/tests/scan_sample_furret.jpg as swsh3-136 with top-level confidence='high' and the frontend auto-navigates to /card/swsh3-136 in single mode. User isolation verified both at API (user A's added card not visible to B) and UI level.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Scan page - batch queue", "issues": ["React console warning: <span> cannot be a child of <option>. Comes from <select><option>{it.matches.name}</option></select> where the dev instrumentation wraps the dynamic text in a <span>. Harmless in production build (no x-source spans) but worth noting - a safer fix is to render match name as a label alongside the <select>, or make options use primitive strings only."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py uses @app.on_event('startup'/'shutdown') which is deprecated in FastAPI; migrate to lifespan context manager.",
+    "CORS_ORIGINS defaults to '*' and allow_credentials=False - fine for current Bearer-token auth, but if cookies are ever used, origins must be explicit.",
+    "auth.py login_attempts rate-limit uses request.client.host which behind an ingress is often the proxy IP, making the per-identifier lockout coarse (all users behind same NAT share counters). Consider X-Forwarded-For.",
+    "/api/sets fetches every series + all cards per set via tcgdex and can be slow on cold cache (~tens of seconds on first call). Already tolerated with 120s client timeout; consider pre-warming.",
+    "scanner.recognize is called synchronously inside the request; large batches could tie up event loop. Current single-image path is OK.",
+    "frontend/.env is deleted inside Dockerfile before `yarn build`; good, but the compose build arg REACT_APP_BACKEND_URL defaults to \"\" which means the built SPA will call relative /api (works because nginx proxies). Document this clearly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/__init__.py",
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100% (14/14 flows)"},
+  "test_credentials": "admin@pokebinder.local / admin123 (works). Dynamic TEST users created via /api/auth/register.",
+  "seed_data_creation": "Admin user is auto-seeded on backend startup. Tests create ephemeral test_a_*/test_b_* users and add swsh3-136 to user A collection + swsh3 goal; wishlist entry is toggled off. No manual seeding required.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest suite at /app/backend/tests/backend_test.py is the regression harness - runs in ~8s with pytest-xdist. Scanner response has confidence as a TOP-LEVEL field (not inside matches[0]). Register endpoint lowercases email, so compare lowercased. First call to /api/sets or /api/sets/swsh3 can be slow (cold tcgdex cache) - use 120s timeout. Index build for swsh3 is quick (~226 fingerprints) and leaves scanner.status['running']=False afterwards; subsequent /api/scan/index calls return 200.",
+  "rca of the issue": "N/A - no bugs found; the two initial test failures were test-side issues (email case sensitivity + confidence field location) that were fixed in backend_test.py."
+}

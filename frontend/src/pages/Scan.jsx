@@ -60,7 +60,7 @@ function QueueItem({ it, onChange, onRemove }) {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <select value={it.sel} onChange={(e) => onChange({ sel: Number(e.target.value), variant: it.matches[e.target.value].variants?.[0] || "normal" })}
                 className="max-w-[170px] rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold" data-testid={`batch-item-match-${it.key}`}>
-                {it.matches.map((x, i) => <option key={x.card_id} value={i}>{x.name} · {x.set_name} #{x.local_id}</option>)}
+                {it.matches.map((x, i) => <option key={x.card_id} value={i}>{`${x.name} · ${x.set_name} #${x.local_id}`}</option>)}
               </select>
               <select value={it.variant} onChange={(e) => onChange({ variant: e.target.value })} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold" data-testid={`batch-item-variant-${it.key}`}>
                 {(m.variants || ["normal", "holo", "reverse"]).map((v) => <option key={v} value={v}>{vLabel(v)}</option>)}
