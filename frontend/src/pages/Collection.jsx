@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { api, usd, eur, API_BASE } from "@/lib/api";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { PageTitle, Spinner, Empty, Btn, Chips } from "@/components/UI";
+import { CollectionValueChart } from "@/components/Charts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const SORTS = [["recent", "Recently added"], ["value", "Highest value"], ["name", "Name"], ["set", "Set & number"]];
@@ -45,6 +46,7 @@ export default function Collection() {
           ))}
         </div>
       )}
+      <div className="mb-6"><CollectionValueChart /></div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />

@@ -6,6 +6,7 @@ import confetti from "canvas-confetti";
 import { api, formatErr, usd, eur, TYPE_COLORS, logoImg } from "@/lib/api";
 import { CardImage, CardTile, CardGrid } from "@/components/CardTile";
 import { Spinner, Btn } from "@/components/UI";
+import { CardPriceChart } from "@/components/Charts";
 
 const Row = ({ k, v }) => v == null || v === "" ? null : (
   <div className="flex justify-between gap-4 border-b border-slate-100 py-2 text-sm"><span className="text-slate-500">{k}</span><span className="text-right font-bold">{v}</span></div>
@@ -118,6 +119,7 @@ export default function CardDetail() {
             <div className="space-y-2">{d.variants.map((v) => <VariantRow key={v.type} v={v} onSet={setQty} />)}</div>
           </div>
           <div><h2 className="mb-3 font-display text-xl font-bold">Prices</h2><PriceTables pricing={c.pricing} /></div>
+          <CardPriceChart cardId={id} />
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-3xl bg-white p-5">
               <h2 className="mb-2 font-display text-xl font-bold">Details</h2>

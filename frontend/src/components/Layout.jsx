@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Search, Layers, ScanLine, LibraryBig, Target, Heart, BookOpen, Settings, LogOut, Menu } from "lucide-react";
+import { Home, Search, Layers, ScanLine, LibraryBig, Target, Heart, BookOpen, Settings, LogOut, Menu, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/collection", label: "My Cards", icon: LibraryBig },
   { to: "/goals", label: "Goals", icon: Target },
   { to: "/wishlist", label: "Wishlist", icon: Heart },
+  { to: "/family", label: "Family", icon: Users },
   { to: "/pokedex", label: "Pokédex", icon: BookOpen },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

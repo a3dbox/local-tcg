@@ -5,6 +5,7 @@ import { api, usd, eur, logoImg } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { ProgressBar, Spinner, Btn } from "@/components/UI";
+import { CollectionValueChart } from "@/components/Charts";
 
 const Stat = ({ icon: Icon, label, value, sub, testid, accent }) => (
   <div className={`rounded-3xl border border-slate-200/60 p-6 shadow-[0_4px_12px_rgba(0,0,0,0.05)] ${accent || "bg-white"}`} data-testid={testid}>
@@ -39,6 +40,7 @@ export default function Dashboard() {
         <Stat icon={Sparkles} label="Unique cards" value={s.unique_cards} testid="stat-unique-cards" />
         <Stat icon={Layers} label="Sets started" value={s.sets_started} testid="stat-sets-started" />
       </div>
+      <CollectionValueChart />
 
       <section>
         <div className="mb-4 flex items-center justify-between">

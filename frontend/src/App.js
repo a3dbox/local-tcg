@@ -14,6 +14,7 @@ import { Goals, Wishlist } from "@/pages/Goals";
 import { Pokedex, PokemonCards } from "@/pages/Pokedex";
 import Scan from "@/pages/Scan";
 import Settings from "@/pages/Settings";
+import Family from "@/pages/Family";
 
 function Protected({ children }) {
   const { user } = useAuth();
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/collection" element={<Collection />} />
             <Route path="/goals" element={<Goals />} />
             <Route path="/wishlist" element={<Wishlist />} />
+            <Route path="/family" element={<Family />} />
             <Route path="/pokedex" element={<Pokedex />} />
             <Route path="/pokedex/:dex" element={<PokemonCards />} />
             <Route path="/scan" element={<Scan />} />

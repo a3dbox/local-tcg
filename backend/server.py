@@ -9,7 +9,6 @@ import io  # noqa: E402
 import csv  # noqa: E402
 import asyncio  # noqa: E402
 import logging  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 from typing import Optional, List  # noqa: E402
 
 from bson import ObjectId  # noqa: E402
@@ -29,15 +28,9 @@ app = FastAPI(title="PokeBinder")
 api = APIRouter(prefix="/api")
 
 
-def now():
-    return datetime.now(timezone.utc).isoformat()
-
-
-async def owned_map(uid, query=None):
-    out = {}
-    async for d in db.collection_items.find({"user_id": uid, **(query or {})}, {"card_id": 1, "variant": 1, "quantity": 1}):
-        out.setdefault(d["card_id"], {})[d["variant"]] = d["quantity"]
-    return out
+from ops import now, owned_map, add_item, collection_stats  # noqa: E402
+import history  # noqa: E402
+import family  # noqa: E402
 
 
 # ---------- meta / cards ----------
@@ -97,6 +90,7 @@ async def card_detail(card_id: str, user: User = Depends(get_current_user)):
         price = tcgdex.price_for(card, v)
         variants.append({"type": v, "label": tcgdex.VARIANT_LABELS.get(v, v), **price, "owned": owned.get(v, 0)})
         await db.collection_items.update_many({"card_id": card_id, "variant": v}, {"$set": price})
+    await history.record_card_prices(card)
     wish = await db.wishlist.find_one({"user_id": user.id, "card_id": card_id})
     return {"card": card, "variants": variants, "wishlisted": bool(wish)}
 
@@ -206,19 +200,6 @@ class ItemPatch(BaseModel):
     condition: Optional[str] = None
 
 
-async def add_item(uid, card_id, variant, qty):
-    card = await tcgdex.get_card(db, card_id)
-    if not card:
-        raise HTTPException(404, f"Card {card_id} not found")
-    meta = tcgdex.summarize(card)
-    meta.pop("card_id")
-    await db.collection_items.update_one(
-        {"user_id": uid, "card_id": card_id, "variant": variant},
-        {"$inc": {"quantity": qty}, "$set": {**tcgdex.price_for(card, variant), "updated_at": now()},
-         "$setOnInsert": {**meta, "condition": "NM", "created_at": now()}}, upsert=True)
-    return meta["name"]
-
-
 @api.post("/collection/add")
 async def collection_add(body: AddIn, user: User = Depends(get_current_user)):
     name = await add_item(user.id, body.card_id, body.variant, max(1, body.quantity))
@@ -281,16 +262,6 @@ async def collection_patch(item_id: str, body: ItemPatch, user: User = Depends(g
 async def collection_delete(item_id: str, user: User = Depends(get_current_user)):
     await db.collection_items.delete_one({"_id": ObjectId(item_id), "user_id": user.id})
     return {"ok": True}
-
-
-async def collection_stats(uid):
-    agg = await db.collection_items.aggregate([{"$match": {"user_id": uid}}, {"$group": {
-        "_id": None, "qty": {"$sum": "$quantity"}, "unique": {"$addToSet": "$card_id"}, "sets": {"$addToSet": "$set_id"},
-        "usd": {"$sum": {"$multiply": [{"$ifNull": ["$price_usd", 0]}, "$quantity"]}},
-        "eur": {"$sum": {"$multiply": [{"$ifNull": ["$price_eur", 0]}, "$quantity"]}}}}]).to_list(1)
-    a = agg[0] if agg else {}
-    return {"total_cards": a.get("qty", 0), "unique_cards": len(a.get("unique", [])), "sets_started": len(a.get("sets", [])),
-            "value_usd": round(a.get("usd", 0), 2), "value_eur": round(a.get("eur", 0), 2)}
 
 
 @api.get("/collection/stats")
@@ -409,6 +380,8 @@ async def index_build(body: IndexIn, user: User = Depends(get_current_user)):
 
 
 app.include_router(auth_router)
+app.include_router(history.router)
+app.include_router(family.router)
 app.include_router(api)
 app.add_middleware(CORSMiddleware, allow_credentials=False, allow_origins=os.environ["CORS_ORIGINS"].split(","),
                    allow_methods=["*"], allow_headers=["*"])
@@ -421,7 +394,11 @@ async def startup():
     await db.collection_items.create_index([("user_id", 1), ("set_id", 1)])
     await db.goals.create_index([("user_id", 1), ("set_id", 1)], unique=True)
     await db.wishlist.create_index([("user_id", 1), ("card_id", 1)], unique=True)
+    await db.card_price_history.create_index([("card_id", 1), ("date", 1)], unique=True)
+    await db.value_history.create_index([("user_id", 1), ("date", 1)], unique=True)
+    await db.trade_log.create_index([("from_id", 1), ("to_id", 1)])
     asyncio.create_task(scanner.load_index(db))
+    asyncio.create_task(history.daily_loop())
 
 
 @app.on_event("shutdown")

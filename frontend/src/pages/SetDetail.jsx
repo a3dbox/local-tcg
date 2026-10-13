@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
-import { Target, X } from "lucide-react";
+import { Target, X, LayoutGrid, BookOpen } from "lucide-react";
+import { Binder } from "@/components/Binder";
 import { api, formatErr, logoImg, usd } from "@/lib/api";
 import { CardTile, CardGrid } from "@/components/CardTile";
 import { ProgressBar, Spinner, Chips, Btn } from "@/components/UI";
@@ -13,6 +14,8 @@ export default function SetDetail() {
   const { id } = useParams();
   const [sp, setSp] = useSearchParams();
   const view = sp.get("view") || "";
+  const [layout, setLayoutState] = useState(() => localStorage.getItem("pb_set_layout") || "grid");
+  const setLayout = (v) => { localStorage.setItem("pb_set_layout", v); setLayoutState(v); };
   const [d, setD] = useState(null);
   const [det, setDet] = useState(null);
   const load = useCallback(() => api.get(`/sets/${id}`).then((r) => setD(r.data)), [id]);
@@ -80,16 +83,26 @@ export default function SetDetail() {
         </div>
       </div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Chips testid="set-view-filter" value={view} onChange={(v) => { const n = new URLSearchParams(sp); v ? n.set("view", v) : n.delete("view"); setSp(n, { replace: true }); }}
-          options={[{ value: "owned", label: `Owned (${Object.keys(d.owned).length})` }, { value: "missing", label: `Missing (${s.cards.length - Object.keys(d.owned).length})` }]} />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex rounded-full bg-white p-1 shadow-sm" data-testid="set-layout-toggle">
+            {[["grid", "Grid", LayoutGrid], ["binder", "Binder", BookOpen]].map(([v, l, Icon]) => (
+              <button key={v} onClick={() => setLayout(v)} data-testid={`set-layout-${v}`}
+                className={`press flex items-center gap-1.5 rounded-full px-4 py-1.5 font-display text-sm font-bold ${layout === v ? "bg-slate-900 text-white" : "text-slate-600"}`}><Icon className="h-4 w-4" /> {l}</button>
+            ))}
+          </div>
+          {layout === "grid" && <Chips testid="set-view-filter" value={view} onChange={(v) => { const n = new URLSearchParams(sp); v ? n.set("view", v) : n.delete("view"); setSp(n, { replace: true }); }}
+            options={[{ value: "owned", label: `Owned (${Object.keys(d.owned).length})` }, { value: "missing", label: `Missing (${s.cards.length - Object.keys(d.owned).length})` }]} />}
+        </div>
         <Btn variant="ghost" className="text-sm" onClick={() => window.print()} data-testid="print-checklist-button">Print checklist</Btn>
       </div>
+      {layout === "binder" ? <Binder cards={s.cards} owned={d.owned} details={det} /> : (
       <CardGrid testid="set-cards-grid">
         {cards.map((c, i) => {
           const owned = Object.values(d.owned[c.id] || {}).reduce((a, b) => a + b, 0);
           return <CardTile key={c.id} card={c} index={i} owned={owned} missing={!owned} price={det?.[c.id]?.price_usd} onQuickAdd={quickAdd} />;
         })}
       </CardGrid>
+      )}
     </div>
   );
 }
