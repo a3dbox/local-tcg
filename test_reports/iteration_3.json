@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 3 verified GBP currency, admin accounts, custom sets, storage, scanner, set icons, and unit test suites. Backend: 88/88 unit tests pass (pytest tests/unit) in 27s; 31/31 regression tests still pass (backend_test.py + test_family_history.py); 12/12 new integration tests (test_iter3_integration.py) pass against public URL covering GBP shape (fx.eur_gbp, fx.usd_gbp, variants[].price_gbp, stats.value_gbp, history[].value_gbp), admin CRUD (create user who can log in, edit+reset-password, delete removes user, admin cannot delete self (400), admin cannot change own role (400), non-admin GET /api/admin/users -> 403), custom sets (rule-based with dex=7 resolves >=1 Squirtle card; hand-picked create + add/remove card), locations (create, list with unassigned+value_gbp, add to collection then /api/locations/move from unassigned to new binder, detail shows items, delete), and scanner (POST /api/scan with scan_sample_furret.jpg returns swsh3-136 in matches). Frontend: 13/13 Jest tests pass. UI (Playwright on preview URL): admin login shows nav-accounts; /admin renders admin-users-table with 27 edit buttons and 26 delete buttons (admin's own row has no delete, confirming self-delete prevention); admin-create-user-button -> user-form-dialog with name/email/password fields creates user (toast appears, row added); admin-delete-<id> + admin-delete-confirm removes user. GBP (£) visible on Dashboard, Storage, Card detail, admin value column. nav-mysets opens /my-sets with new-custom-set-button -> custom-set-dialog with idea chip idea-all-darkness-pok-mon, rule-name-input, rule-dex-input, type chips (Fire etc.), set select; custom-set-save-button navigates to /my-sets/:id showing custom-set-progress. Storage flow: new-location-button -> location-dialog -> location-name-input + location-kind-binder + location-save-button creates binder, location-card-unassigned visible with £ values. Scan page has upload-photos-input, auto-scan-toggle, scan-destination-select; uploading scan_sample_furret.jpg matches Furret (swsh3-136) and opens single-mode detail. Card detail: 2 variant-rows render, £ shown, where-panel present; add-to-custom-set-select only renders when user has >=1 custom set (otherwise create-custom-set-link is shown — intentional). Search filter-set dropdown contains 220 options with 220 <img data-testid='set-icon-*'> icons (some icons 404 and fall back to logo per spec). Settings index-set-select present. Collection page has collection-dupes-filter-1 and collection-location-filter.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/scan page (Scan.jsx line ~205)", "issues": ["React hydration warning: '<span> cannot be a child of <option>'. Preview/dev tooling injects an instrumentation <span style={display:contents}> around dynamic text inside the <select>/<option> that lists storage destinations. Harmless at runtime (text renders), but produces a console warning on every scan page mount. Low priority; can be sidestepped by rendering the dynamic value with a plain string template literal (`{`${l.name} (${l.kind})`}`) instead of multiple JSX expressions so the dev tooling doesn't wrap it with a span."]},
+      {"screen": "Search filter-set dropdown", "issues": ["Several set-icon-* <img> URLs 404 (pokemontcg.io symbol missing for some sets). Spec says this is expected (fallback to logo). Could log fewer console errors by swapping the <img> onError to set src=logo once instead of leaving the broken src."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter3_integration.py",
+    "/app/backend/tests/unit/",
+    "/app/test_reports/pytest/iteration_3_unit.xml",
+    "/app/test_reports/pytest/iteration_3_int.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "admin.py delete_user: deletes six collections sequentially without a transaction — if any fails midway the user doc is already gone and orphan rows remain. Low risk on single-node Mongo but worth noting.",
+    "custom_sets.resolve_cards: iterates up to 8 pages of 250 cards per rule for every list_custom_sets() call. For a user with many rule-based sets the My Sets page can balloon in latency; consider caching resolved card_ids per custom set and invalidating on rule change.",
+    "custom_sets.remove_card: for rule-based sets it $addToSet into excluded_ids but doesn't $pull from card_ids in the same op condition — fine as long as rules exist, but if the card was ALSO hand-picked it stays in card_ids AND in excluded_ids. The resolve_cards filter does drop it, so behavior is correct but data is slightly redundant.",
+    "locations.py move: no index on collection_items.user_id+_id composite nor on placements map; fine for small collections but will scan under load.",
+    "CardDetail AddToCustomSet: refetches /custom-sets on every card detail mount (even just to decide whether to show the Link vs the select). Consider lifting to a context or SWR cache to avoid hitting the heavier custom-sets endpoint on every card page.",
+    "Scan.jsx: destination <option> content uses nested JSX expressions that the preview dev tooling wraps in a <span>, causing a React hydration warning. Flatten into a single template-string child to avoid.",
+    "server.py still uses deprecated @app.on_event startup/shutdown (same note as iterations 1 & 2 — unresolved).",
+    "pytest.ini addopts enforces -n 2 --dist loadscope on EVERY pytest invocation, so running an integration test file against the public URL requires -n 0 and REACT_APP_BACKEND_URL to be exported. Documented, but mildly inconvenient."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter3_integration.py"
+  ],
+  "success_rate": {"backend": "100% (88 unit + 12 new integration + 31 regression = 131/131)", "frontend": "100% jest (13/13); all requested UI flows verified (admin CRUD + self-delete prevention, custom sets dialog, storage CRUD, scan upload+destination, set icons, GBP display, where-panel, dupes+location filters, add-to-custom-set-select)"},
+  "test_credentials": "admin@pokebinder.local / admin123 (works). Fresh TEST_* users registered per-run via /api/auth/register with password secret123.",
+  "seed_data_creation": "Each integration run registers TEST_iter3_<ts>@pb.local and TEST_adm_<ts>@pb.local; TEST hand-picked / Squirtle custom sets and TEST Binder location are cleaned up at end of their respective tests. No cleanup needed for the test user docs (idempotent, prefixed TEST_).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest.ini pins testpaths=tests/unit and addopts=-n 2 --dist loadscope, so integration files must be run explicitly by path AND with -n 0 AND with REACT_APP_BACKEND_URL exported, e.g. `cd /app/backend && REACT_APP_BACKEND_URL=... python -m pytest tests/test_iter3_integration.py -n 0`. GET /api/collection/history returns a bare list (not {points:[]}). GET /api/locations returns {locations:[...], unassigned:{cards,unique,value_gbp}}. Collection add endpoint is POST /api/collection/add (not /items). Location move is POST /api/locations/move with body {item_id, from_id, to_id, quantity} where 'unassigned' is a valid id. Login form uses placeholder 'Email'/'Password' (not label-based). add-to-custom-set-select on card detail only renders when user already has >=1 custom set; otherwise create-custom-set-link renders. filter-set dropdown shows 220 options with set-icon <img>s whose onError falls back to the set logo — some 404s in console are expected.",
+  "rca of the issue": "N/A — no production bugs. Only a cosmetic React hydration warning on /scan caused by preview-env dev tooling wrapping an <option>'s text in a <span>; see action note in design_issues above."
+}

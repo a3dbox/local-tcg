@@ -64,7 +64,7 @@ export default function Collection() {
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <Chips testid="collection-dupes-filter" value={dupes} onChange={setDupes} options={[{ value: "1", label: "Duplicates only" }]} />
         <select value={loc} onChange={(e) => setLoc(e.target.value)} className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-bold" data-testid="collection-location-filter">
-          <option value="">All storage</option><option value="unassigned">Not stored yet</option>{locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          <option value="">All storage</option><option value="unassigned">Not stored yet</option>{locs.map((l) => <option key={l.id} value={l.id}>{String(l.name)}</option>)}
         </select>
       </div>
       <div className="mb-6"><Chips testid="collection-variant-filter" value={variant} onChange={setVariant} options={[{ value: "normal", label: "Normal" }, { value: "holo", label: "Holo" }, { value: "reverse", label: "Reverse Holo" }, { value: "firstEdition", label: "1st Edition" }]} /></div>

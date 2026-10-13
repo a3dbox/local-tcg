@@ -25,6 +25,18 @@ Build me a web app docker project that I can use and my 7 year old can use to se
 - Fingerprint index builder (tracked sets / single set / all)
 - Tested: 20/20 backend, 14/14 frontend flows
 
+## Iteration 2 (2026-06)
+- Binder view (9-pocket flippable pages), Family trading (compare, duplicates, give cards, activity), Price history (daily card & collection snapshots, charts)
+
+## Iteration 3 (2026-06)
+- Prices in GBP (Cardmarket EUR→GBP preferred, TCGplayer USD→GBP fallback, ECB rates via frankfurter.dev)
+- Admin account management (/admin): create/edit/reset password/role/delete users
+- Set icons in set drop-downs (pokemontcg.io symbol CDN, logo fallback)
+- Custom sets (rule-based: name/dex/type/category/rarity/set/illustrator + hand-picked + exclusions)
+- Storage locations (binder/case/box/deck/bulk) with per-copy placements, move, unassigned view, duplicates filter, scan destination
+- Camera: auto-snap on steady+sharp frame, torch, camera switch, zoom, beep/vibrate, improved card edge detection
+- Unit tests: backend 88 (pytest, fake TCGdex, throwaway DB), frontend 13 (jest)
+
 ## Backlog
 - P1: Holo vs reverse-holo detection from photo; price history charts; binder page view
 - P2: Import CSV; grading/condition values; trade list sharing between family accounts; multi-language cards

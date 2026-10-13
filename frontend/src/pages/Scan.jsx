@@ -202,7 +202,7 @@ export default function Scan() {
             </label>
           )}
           <select value={dest} onChange={(e) => setDest(e.target.value)} className="h-11 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-bold" data-testid="scan-destination-select">
-            <option value="">Add cards to: no storage yet</option>{locs.map((l) => <option key={l.id} value={l.id}>Add cards to: {l.name}</option>)}
+            <option value="">Add cards to: no storage yet</option>{locs.map((l) => <option key={l.id} value={l.id}>{`Add cards to: ${l.name}`}</option>)}
           </select>
           {mode === "single" && (
             <label className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-600">

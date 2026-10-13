@@ -37,6 +37,28 @@ Then open `https://<SERVER_HOST>:8443` and accept the self-signed certificate wa
 Note: Holo vs Reverse Holo of the same card share the same artwork, so the scanner suggests the first variant —
 change it in the batch queue or on the card page.
 
+## Your data (database)
+Everything — accounts, collections, storage locations, custom sets, goals, wishlists, price history and scanner
+fingerprints — is stored in **MongoDB**, in the Docker volume `mongo_data`. It survives restarts, rebuilds and upgrades
+(`docker compose down` keeps it; only `docker compose down -v` deletes it).
+
+Backup / restore:
+```bash
+docker compose exec mongo mongodump --db pokebinder --archive > pokebinder-backup.archive
+docker compose exec -T mongo mongorestore --archive < pokebinder-backup.archive
+```
+
+## Prices
+Shown in **GBP**. Cardmarket (EUR) prices are converted with the daily ECB rate (frankfurter.dev); TCGplayer (USD)
+is used when there's no Cardmarket price. Prices and your collection value are snapshotted daily for the history charts.
+
+## Tests
+```bash
+cd backend && pip install -r requirements.docker.txt pytest pytest-asyncio pytest-xdist && pytest      # needs a local MongoDB
+cd frontend && yarn install && CI=true yarn test --watchAll=false
+```
+Backend unit tests use fake card data (no internet needed) and a throwaway database.
+
 ## Data sources
 - Cards, sets, variants, prices: [TCGdex](https://tcgdex.dev) (free, no key) — cached in MongoDB.
 - Pokédex: [PokeAPI](https://pokeapi.co).

@@ -31,7 +31,7 @@ function AddToCustomSet({ cardId }) {
   const add = async (sid) => { if (!sid) return; await api.post(`/custom-sets/${sid}/cards`, { card_id: cardId }); toast.success(`Added to ${sets.find((s) => s.id === sid).name}`); };
   return (
     <select value="" onChange={(e) => add(e.target.value)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold" data-testid="add-to-custom-set-select">
-      <option value="">+ Add to my set…</option>{sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+      <option value="">+ Add to my set…</option>{sets.map((s) => <option key={s.id} value={s.id}>{String(s.name)}</option>)}
     </select>
   );
 }

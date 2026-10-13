@@ -83,7 +83,7 @@ export function MoveSelect({ item, from, locations, onMoved, testid }) {
     <select value="" onChange={(e) => move(e.target.value)} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold" data-testid={testid}>
       <option value="">Move 1 to…</option>
       {from !== "unassigned" && <option value="unassigned">Not stored</option>}
-      {locations.filter((l) => l.id !== from).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+      {locations.filter((l) => l.id !== from).map((l) => <option key={l.id} value={l.id}>{String(l.name)}</option>)}
     </select>
   );
 }
