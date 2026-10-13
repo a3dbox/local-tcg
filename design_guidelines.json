@@ -1,0 +1,130 @@
+{
+  "theme": "light",
+  "aesthetic_archetype": "Archetype 6 (Vibrant Play) + Tactile Cardstock",
+  "typography": {
+    "font_families": {
+      "heading": "Outfit",
+      "body": "Nunito",
+      "mono": "JetBrains Mono"
+    },
+    "guidelines": {
+      "H1": "text-4xl sm:text-5xl lg:text-6xl font-outfit font-black tracking-tight",
+      "H2": "text-2xl sm:text-3xl lg:text-4xl font-outfit font-bold tracking-tight",
+      "H3": "text-xl sm:text-2xl font-outfit font-semibold",
+      "body": "text-base sm:text-lg font-nunito leading-relaxed text-slate-700",
+      "labels": "text-xs font-outfit font-bold uppercase tracking-[0.15em] text-slate-500"
+    },
+    "instructions": "Use 'Outfit' for all strong numerical stats, prices, and headings. Use 'Nunito' for long-form text, descriptions, and rules to keep it highly accessible for younger users."
+  },
+  "colors": {
+    "base": {
+      "background": "#FDFBF7",
+      "card_surface": "#FFFFFF",
+      "text_primary": "#0F172A",
+      "text_secondary": "#475569"
+    },
+    "brand": {
+      "primary_red": "#E3350D",
+      "primary_red_hover": "#C82D0A",
+      "accent_yellow": "#FFCC00",
+      "accent_yellow_hover": "#E6B800"
+    },
+    "types_and_elements": {
+      "grass": "#4ADE80",
+      "fire": "#F87171",
+      "water": "#60A5FA",
+      "lightning": "#FACC15",
+      "psychic": "#C084FC",
+      "fighting": "#FB923C",
+      "darkness": "#334155",
+      "metal": "#94A3B8"
+    },
+    "guidelines": "Never use pure white/black. Backgrounds should feel like matte cardstock. Reserve the Primary Red for main actions (Scanning, Adding to Collection) and Accent Yellow for highlights (Holos, Milestones)."
+  },
+  "surfaces_and_micro_themes": {
+    "trading_cards": {
+      "style": "Tactile Neumorphism",
+      "classes": "bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-slate-200/60 overflow-hidden",
+      "hover": "hover:-translate-y-2 hover:shadow-[0_12px_24px_rgba(0,0,0,0.12)] transition-all duration-300 ease-out"
+    },
+    "holo_foil_effect": {
+      "description": "For 'Holo' or 'Reverse Holo' variants, apply a shimmering overlay.",
+      "implementation": "Use the iridescent plastic texture from media_and_images as an absolute overlay. Apply `mix-blend-color-dodge` or `mix-blend-screen` with `opacity-50`. Animate background position on hover to simulate shining foil."
+    },
+    "bottom_nav": {
+      "style": "Crystal Glass",
+      "classes": "backdrop-blur-2xl bg-white/80 border-t border-slate-200/50 shadow-[0_-4px_24px_rgba(0,0,0,0.04)]"
+    },
+    "scanner_reticle": {
+      "style": "The Tracing Beam",
+      "classes": "relative border-2 border-dashed border-white/50 rounded-xl",
+      "active_scan": "Use framer-motion to animate a glowing red line dropping top to bottom continuously."
+    }
+  },
+  "layouts_and_spacing": {
+    "app_structure": "Mobile-first bottom navigation paradigm. 1 column on mobile, transitioning to a dense dashboard/sidebar on desktop.",
+    "collection_grid": "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6",
+    "dashboard_bento": "grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6. Use col-span-2 for primary charts, col-span-1 for summary stats.",
+    "detail_view": "Instead of full page navigation for cards, use Shadcn Sheet (Bottom Drawer on mobile, Right Drawer on desktop) to allow rapid scanning and adding without losing grid context.",
+    "spacing_scale": "Generous spacing around structural elements (p-6 to p-8), but tight spacing inside cards (p-3 to p-4) to maximize artwork size."
+  },
+  "components": {
+    "buttons": "Pill-shaped (rounded-full). Primary buttons should be solid Primary Red with a subtle bottom-heavy shadow to feel 'pressable'.",
+    "inputs": "Shadcn defaults but rounded-xl with bg-slate-50, border-slate-200. High contrast focus rings (focus:ring-primary_red).",
+    "progress_bars": "Thick (h-4 or h-6) with rounded-full ends. Use gradient fills (e.g., Yellow to Red) for set completion milestones to make it exciting for kids.",
+    "badges": "Use brightly colored pills for Card Types (Fire, Water, etc.) with dark text for contrast if needed.",
+    "filters": "Horizontal scrollable chips (facets) for Type, Set, Rarity. Do not hide all filters in a dropdown; expose the most common ones."
+  },
+  "motion_and_interactions": {
+    "page_transitions": "Fade and slight slide-up (10px) using framer-motion.",
+    "list_stagger": "When loading the card grid, stagger the entrance of cards by 0.05s.",
+    "haptic_feedback": "Visually simulate haptic feedback by scaling buttons down (scale-95) on active/tap state.",
+    "celebration": "When a 'Goal' or 'Set' is completed, or a highly valuable card is scanned, use tsParticles for a burst of confetti or stars."
+  },
+  "media_and_images": {
+    "holographic_texture": {
+      "url": "https://images.unsplash.com/photo-1603847734787-9e8a3f3e9d60",
+      "usage": "Use as an overlay with mix-blend-mode for Holo card variants to simulate shiny foil."
+    },
+    "playful_background": {
+      "url": "https://images.unsplash.com/photo-1655998233171-ee5b130acba5",
+      "usage": "Use as a blurred, low-opacity background for onboarding, empty states, or login screens."
+    },
+    "scanner_placeholder": {
+      "url": "https://images.unsplash.com/photo-1522325430955-e2d3bb38c71a",
+      "usage": "Use as a fallback background for the scanner page before camera permission is granted, heavily darkened (bg-black/80)."
+    },
+    "blank_avatar": {
+      "url": "https://images.unsplash.com/photo-1586006552138-ea18985ab492",
+      "usage": "Fallback avatar for user profiles."
+    }
+  },
+  "iconography": {
+    "library": "lucide-react",
+    "style": "Use stroke-width 2.5 for a slightly bolder, friendlier appearance suitable for kids. Primary icons (Scan, Collection) in the bottom nav should be slightly larger (w-6 h-6)."
+  },
+  "general_ui_ux_design_guidelines": {
+    "accessibility": "Ensure 4.5:1 contrast ratio. Do not use transparent backgrounds under text. Use 'Outfit' for numbers to prevent tabular figure shifting.",
+    "target_audience_bridge": "To serve both adults and a 7-year-old: Keep the data (prices, set numbers) present but secondary. Make the card art and set logos the primary visual hierarchy. Use color-coded type badges which kids recognize instantly.",
+    "touch_targets": "Minimum 44x44px for all interactable elements. Especially crucial for the 'Add to Collection' plus buttons on the grid.",
+    "data_testid": "ALL interactive elements must include a data-testid attribute in kebab-case based on their role (e.g., data-testid='scan-camera-btn', data-testid='card-item-charizard')."
+  },
+  "instructions_to_main_agent": {
+    "tech_stack": "React, Tailwind, Shadcn UI, Framer Motion.",
+    "implementation_steps": [
+      "1. Setup Tailwind config with custom colors (primary_red, accent_yellow) and fonts (Outfit, Nunito).",
+      "2. Build the structural layout: Bottom Navigation for Mobile, Sidebar for Desktop.",
+      "3. Create the 'TradingCard' component with Holo variants (using the provided holographic_texture with mix-blend-color-dodge).",
+      "4. Implement the Scanner UI: Camera viewport with a targeted 'Tracing Beam' overlay.",
+      "5. Build the Sets Dashboard: Progress bars and bento-grid stats.",
+      "6. Ensure the Detail Sheet (Drawer) opens quickly for fast batch-adding."
+    ],
+    "crucial_rules": [
+      "DO NOT center align text paragraphs. Left align for readability.",
+      "DO NOT use raw HTML `<select>`. Use Shadcn Select or horizontal scrolling chips for filters.",
+      "ALWAYS explicitly set text color on hover states.",
+      "DO NOT use complete transparent backgrounds behind text. Use backdrop-blur with a semi-solid color.",
+      "USE framer-motion for smooth sheet openings and scanning beam animations."
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+https://{$SERVER_HOST}:443 {
+	tls internal
+	reverse_proxy frontend:80
+}
